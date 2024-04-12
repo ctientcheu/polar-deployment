@@ -16,6 +16,7 @@ services:
       - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
       - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
       - POLAR_CATALOGSERVICEURI=http://catalog-service:9001
+
   catalog-service:
     depends_on:
       - polar-postgres
@@ -31,6 +32,24 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
       - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
       - POLAR_TESTDATA_ENABLE=true
+
+  edge-service:
+    depends_on:
+      - polar-redis
+    image: "edge-service"
+    container_name: "edge-service"
+    ports:
+      - 9000:9000
+      - 8000:8000
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8000
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8000
+      - CATALOG_SERVICE_URL=http://catalog-service:9001
+      - ORDER_SERVICE_URL=http://order-service:9003
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
+      - SPRING_REDIS_HOST=polar-redis
+
   config-service:
     image: "config-service"
     container_name: "config-service"
@@ -41,6 +60,12 @@ services:
       - BPL_JVM_THREAD_COUNT=50
       - BPL_DEBUG_ENABLED=true
       - BPL_DEBUG_PORT=8002
+
+  polar-redis:
+    image: "redis:7.2.4"
+    container_name: "polar-redis"
+    ports:
+      - "6379:6379"
 
   polar-postgres:
     image: "postgres:16.2"
