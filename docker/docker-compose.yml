@@ -78,6 +78,16 @@ services:
       - SPRING_RABBITMQ_HOST=polar-rabbitmq
       - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
 
+  polar-keycloak:
+    image: quay.io/keycloak/keycloak:24.0.2
+    container_name: "polar-keycloak"
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=user
+      - KAYCLOAK_ADMIN_PASSWORD=password
+    ports:
+      - "8080:8080"
+
   polar-rabbitmq:
     image: rabbitmq:3.13-management
     container_name: polar-rabbitmq
