@@ -2,6 +2,7 @@ version: "3.8"
 services:
   order-service:
     depends_on:
+      - fluent-bit
       - polar-postgres
       - polar-rabbitmq
       - polar-keycloak
@@ -20,9 +21,14 @@ services:
       - SPRING_RABBITMQ_HOST=polar-rabbitmq
       - POLAR_CATALOG_SERVICE_URI=http://catalog-service:9001
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://kubernetes.docker.internal:8080/realms/PolarBookshop
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
 
   catalog-service:
     depends_on:
+      - fluent-bit
       - polar-postgres
       - polar-keycloak
     image: "catalog-service"
@@ -38,9 +44,14 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
       - POLAR_TESTDATA_ENABLE=true
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://kubernetes.docker.internal:8080/realms/PolarBookshop
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
 
   edge-service:
     depends_on:
+      - fluent-bit
       - polar-keycloak
       - polar-redis
       - polar-ui
@@ -59,8 +70,14 @@ services:
       - SPRING_DATA_REDIS_HOST=polar-redis
       - SPA_URL=http://polar-ui:9005
       - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://kubernetes.docker.internal:8080/realms/PolarBookshop
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
 
   config-service:
+    depends_on:
+      - fluent-bit
     image: "config-service"
     container_name: "config-service"
     ports:
@@ -70,9 +87,14 @@ services:
       - BPL_JVM_THREAD_COUNT=50
       - BPL_DEBUG_ENABLED=true
       - BPL_DEBUG_PORT=8002
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
 
   dispatcher-service:
     depends_on:
+      - fluent-bit
       - polar-rabbitmq
     image: "dispatcher-service"
     container_name: "dispatcher-service"
@@ -85,6 +107,12 @@ services:
       - BPL_DEBUG_PORT=8004
       - SPRING_RABBITMQ_HOST=polar-rabbitmq
       - SPRING_CLOUD_CONFIG_URI=http://config-service:9002
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+
+  # web apps - ui
 
   polar-ui:
     image: "ghcr.io/polarbookshop/polar-ui:v1"
@@ -133,3 +161,38 @@ services:
       - POSTGRES_PASSWORD=password
     volumes:
       - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Observability
+
+  grafana:
+    image: grafana/grafana-oss:10.2.2
+    container_name: grafana
+    depends_on:
+      - loki
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=user
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      - ./observability/grafana/datasources/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./observability/grafana/grafana.ini:/etc/grafana/grafana.ini
+
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: loki
+    depends_on:
+      - fluent-bit
+    ports:
+      - "3100:3100"
+
+  fluent-bit:
+    image: grafana/fluent-bit-plugin-loki:2.9.1
+    container_name: fluent-bit
+    ports:
+      - "24224:24224"
+    environment:
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
+    volumes:
+      - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
