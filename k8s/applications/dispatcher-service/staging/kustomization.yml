@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - github.com/ctientcheu/dispatcher-service/k8s?ref=master
+
+patches:
+  - path: patch-env.yml
+
+configMapGenerator:
+  - behavior: merge
+    name: dispatcher-config
+    files:
+      - application-staging.yml
+
+replicas:
+  - name: dispatcher-service
+    count: 2
+
+images:
+  - name: dispatcher-service
+    newName: ghcr.io/ctientcheu/dispatcher-service
+    newTag: latest

@@ -7,7 +7,7 @@ resources:
 configMapGenerator:
   - behavior: merge
     files:
-    - application-staging.yml
+      - application-staging.yml
     name: catalog-config
 
 images:
